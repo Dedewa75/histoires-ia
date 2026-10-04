@@ -1,8 +1,10 @@
 import express from "express";
+import registerShots from "./shots.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
+registerShots(app);
 
 const SYSTEM = `Tu es un scénariste. À partir d'une simple idée, écris UNE histoire continue d'environ 15 minutes en exactement 15 scènes d'environ 1 minute.
 L'histoire a : introduction, personnages, objectif, problèmes, conflits, rebondissements, progression, climax, conclusion émotionnelle.
