@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plans de l'histoire</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1030;--card:#291a47;--ink:#fff4ec;--mute:#b9a9d6;--accent:#ffb38a;--ok:#7ee0c3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Bricolage Grotesque",system-ui,sans-serif;padding:20px;max-width:720px;margin-inline:auto}
+h1{font-size:1.8rem;line-height:1.1;font-weight:800;margin:.5em 0}
+a{color:var(--accent)}
+textarea{width:100%;min-height:140px;background:#1b1030;color:var(--ink);border:1px solid #4a3677;border-radius:10px;padding:10px;font:inherit;resize:vertical}
+label{display:block;color:var(--mute);font-size:.85rem;margin:.7em 0 .2em}
+button{background:var(--accent);color:#2a1300;border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;width:100%;margin:12px 0}
+button:disabled{opacity:.5}
+.card,details{background:var(--card);border-radius:14px;padding:14px;margin:10px 0}
+summary{font-weight:700;cursor:pointer}
+.tot{color:var(--ok);font-weight:700}
+#err{color:#ff9d9d}
+</style></head><body>
+<h1>Plans et prompts vidéo</h1>
+<p><a href="/">← Retour à l'histoire</a></p>
+<div id="err"></div>
+<div id="list"></div>
+<script>
+const $=id=>document.getElementById(id);
+let story=null;
+try{story=JSON.parse(localStorage.getItem("histoire"))}catch{}
+const save=()=>localStorage.setItem("histoire",JSON.stringify(story));
+
+function drawShots(i,box){
+  const sc=story.scenes[i];
+  box.replaceChildren();
+  if(!sc.shots)return;
+  const tot=sc.shots.reduce((t,s)=>t+(+s.duration||0),0);
+  const p=document.createElement("p");p.className="tot";
+  p.textContent=`${sc.shots.length} plans · ${tot} secondes`;
+  box.append(p);
+  sc.shots.forEach(s=>{
+    const d=document.createElement("div");d.className="card";
+    d.innerHTML="<b></b><p></p><label>Prompt vidéo (modifiable)</label><textarea></textarea>";
+    d.querySelector("b").textContent=`Plan ${s.number} · ${s.type} · ${s.duration} s`;
+    d.querySelector("p").textContent=s.action||"";
+    const t=d.querySelector("textarea");
+    t.value=s.videoPrompt;
+    t.oninput=()=>{s.videoPrompt=t.value;save()};
+    box.append(d);
+  });
+}
+
+if(!story||!story.scenes){
+  $("err").innerHTML='Aucune histoire trouvée. Crée ton histoire sur la <a href="/">page d\'accueil</a> et appuie sur « Sauvegarder sur cet appareil ».';
+}else{
+  story.scenes.forEach((sc,i)=>{
+    const d=document.createElement("details");
+    const s=document.createElement("summary");
+    s.textContent=`Scène ${sc.number} — ${sc.title}`;
+    const b=document.createElement("button");
+    b.textContent=sc.shots?"🔄 Régénérer les plans de cette scène":"🎬 Générer les plans";
+    const box=document.createElement("div");
+    b.onclick=async()=>{
+      $("err").textContent="";b.disabled=true;b.textContent="Découpage en cours...";
+      try{
+        const lean={...story,scenes:story.scenes.map(({shots,...r})=>r)};
+        const r=await fetch("/api/shots",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({story:lean,index:i})});
+        const data=await r.json();
+        if(!r.ok)throw new Error(data.error);
+        sc.shots=data.shots;save();drawShots(i,box);
+      }catch(e){$("err").textContent=e.message}
+      b.disabled=false;b.textContent="🔄 Régénérer les plans de cette scène";
+    };
+    d.append(s,b,box);
+    $("list").append(d);
+    drawShots(i,box);
+  });
+}
+</script></body></html>
