@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crée ton histoire avec l'IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1b1030;--card:#291a47;--ink:#fff4ec;--mute:#b9a9d6;--accent:#ffb38a;--ok:#7ee0c3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Bricolage Grotesque",system-ui,sans-serif;padding:20px;max-width:720px;margin-inline:auto}
+h1{font-size:2rem;line-height:1.1;font-weight:800;margin:.5em 0}
+h2{font-size:1.2rem;margin:1.6em 0 .6em}
+textarea,input,select{width:100%;background:#1b1030;color:var(--ink);border:1px solid #4a3677;border-radius:10px;padding:10px;font:inherit}
+textarea{min-height:80px;resize:vertical}
+label{display:block;color:var(--mute);font-size:.85rem;margin:.7em 0 .2em}
+button{background:var(--accent);color:#2a1300;border:0;border-radius:12px;padding:14px 18px;font:inherit;font-weight:700;width:100%;margin-top:12px}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--accent)}
+button:disabled{opacity:.5}
+.card,details{background:var(--card);border-radius:14px;padding:14px;margin:10px 0}
+summary{font-weight:700;cursor:pointer}
+#err{color:#ff9d9d;margin-top:10px}
+#stats{color:var(--ok)}
+</style></head><body>
+<h1>Crée ton histoire avec l'IA</h1>
+<label for="idea">Décris ton idée...</label>
+<textarea id="idea" placeholder="Une petite fraise pauvre veut devenir riche."></textarea>
+<label for="style">Style visuel</label>
+<select id="style"><option>Animation 3D cartoon</option><option>Réaliste</option><option>Cinématique</option><option>Anime</option><option>Dessin animé</option><option>Stop motion</option><option>Dark fantasy</option><option>Science-fiction</option></select>
+<button id="go">✨ CRÉER MON HISTOIRE</button>
+<div id="err"></div>
+<div id="out" hidden>
+  <h2 id="stats"></h2>
+  <label>Titre</label><input id="title">
+  <label>Résumé</label><textarea id="summary"></textarea>
+  <label>Lieu / époque</label><input id="setting">
+  <h2>Personnages</h2><div id="chars"></div>
+  <h2>Scènes</h2><div id="scenes"></div>
+  <button id="save" class="alt">💾 Sauvegarder sur cet appareil</button>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let story=null;
+const F={scene:[["summary","Résumé"],["goal","Objectif narratif"],["location","Lieu"],["action","Action"],["dialogue","Dialogue"],["narration","Narration"],["emotion","Émotion"],["transition","Transition"]],
+char:[["type","Type"],["appearance","Apparence (référence permanente)"],["personality","Personnalité"],["clothing","Vêtements"]]};
+function field(obj,k,l){const w=document.createElement("div");w.innerHTML=`<label>${l}</label><textarea></textarea>`;const t=w.querySelector("textarea");t.value=obj[k]||"";t.oninput=()=>obj[k]=t.value;return w}
+function render(){
+  $("out").hidden=false;
+  $("stats").textContent=`${story.scenes.length} scènes · ${story.characters.length} personnages · ~${story.scenes.length} min`;
+  $("title").value=story.title;$("title").oninput=e=>story.title=e.target.value;
+  $("summary").value=story.summary;$("summary").oninput=e=>story.summary=e.target.value;
+  const s=[story.setting,story.era].filter(Boolean).join(" — ");$("setting").value=s;$("setting").oninput=e=>story.setting=e.target.value;
+  $("chars").replaceChildren(...story.characters.map(c=>{const d=document.createElement("div");d.className="card";d.innerHTML=`<b>${c.name}</b>`;F.char.forEach(([k,l])=>d.append(field(c,k,l)));return d}));
+  $("scenes").replaceChildren(...story.scenes.map(sc=>{const d=document.createElement("details");d.innerHTML=`<summary>Scène ${sc.number} — ${sc.title}</summary>`;F.scene.forEach(([k,l])=>d.append(field(sc,k,l)));return d}));
+}
+$("go").onclick=async()=>{
+  $("err").textContent="";$("go").disabled=true;$("go").textContent="Écriture de l'histoire...";
+  try{
+    const r=await fetch("/api/story",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idea:$("idea").value,style:$("style").value})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);
+    story=d;render();
+  }catch(e){$("err").textContent=e.message}
+  $("go").disabled=false;$("go").textContent="✨ CRÉER MON HISTOIRE";
+};
+$("save").onclick=()=>{try{localStorage.setItem("histoire",JSON.stringify(story));$("save").textContent="✅ Sauvegardé"}catch{$("err").textContent="Sauvegarde impossible ici."}};
+try{const s=localStorage.getItem("histoire");if(s){story=JSON.parse(s);render()}}catch{}
+</script></body></html>
