@@ -17,15 +17,15 @@ Réponds UNIQUEMENT en JSON valide, sans texte autour, avec ce format :
 
 app.post("/api/story", async (req, res) => {
   const key = process.env.OPENAI_API_KEY;
-  if (!key) return res.status(503).json({ error: "OPENAI_API_KEY n'est pas configurée sur le serveur." });
+  if (!key) return res.status(503).json({ error: "La clé API n'est pas configurée sur le serveur." });
   const { idea, style } = req.body || {};
   if (!idea || idea.trim().length < 5) return res.status(400).json({ error: "Écris une idée un peu plus longue." });
   try {
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o",
+        model: process.env.OPENAI_MODEL || "gemini-2.5-flash",
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM },
@@ -34,7 +34,10 @@ app.post("/api/story", async (req, res) => {
       })
     });
     const data = await r.json();
-    if (!r.ok) return res.status(502).json({ error: data?.error?.message || "Erreur du fournisseur LLM." });
+    if (!r.ok) {
+      const d = Array.isArray(data) ? data[0] : data;
+      return res.status(502).json({ error: d?.error?.message || "Erreur du fournisseur LLM." });
+    }
     const story = JSON.parse(data.choices[0].message.content);
     if (!Array.isArray(story.scenes) || !Array.isArray(story.characters)) throw new Error("Format inattendu");
     res.json(story);
